@@ -6,10 +6,27 @@ genesis_block = {'previous_hash': ' ',
 blockchain = [genesis_block]
 open_transactions = []
 owner = 'John'
+participant = {'John'}
 
 
 def hash_block(block):
     return '-'.join([str(block[key]) for key in block])
+
+
+def get_balance(participant):
+    tx_sender = [[tx['amount'] for tx in block['transactions']
+                  if tx['sender'] == participant] for block in blockchain]
+    amount_sent = 0
+    for tx in tx_sender:
+        if len(tx) > 0:
+            amount_sent += tx[0]
+    tx_recipient = [[tx['amount'] for tx in block['transactions']
+                  if tx['recipient'] == participant] for block in blockchain]
+    amount_received = 0
+    for tx in tx_recipient:
+        if len(tx) > 0:
+            amount_received += tx[0]
+    return amount_received - amount_sent
 
 
 def get_last_blockchain_value():
@@ -33,6 +50,8 @@ def add_transaction(recipient, sender=owner, amount=1.0):
                    'amount': amount
                    }
     open_transactions.append(transaction)
+    participant.add(sender)
+    participant.add(recipient)
 
 
 def mine_block():
@@ -43,6 +62,7 @@ def mine_block():
              'transactions': open_transactions
              }
     blockchain.append(block)
+    return True
 
 
 def get_transaction_value():
@@ -83,6 +103,7 @@ while waiting_for_input:
     print('1: Add a new transaction value')
     print('2: Mine a new block')
     print('3: Output the blockchain blocks')
+    print('4: Output participants')
     print('h: Manipulate the blockchain')
     print('q: Quit')
     user_choice = get_user_choice()
@@ -92,9 +113,12 @@ while waiting_for_input:
         add_transaction(recipient, amount=amount)
         print(open_transactions)
     elif user_choice == '2':
-        mine_block()
+        if mine_block():
+            open_transactions = []
     elif user_choice == '3':
         print_blockchain_elements()
+    elif user_choice == '4':
+        print(participant)
     elif user_choice == 'h':
         if len(blockchain) >= 1:
             blockchain[0] = {'previous_hash': ' ',
@@ -109,6 +133,7 @@ while waiting_for_input:
         print_blockchain_elements()
         print('Blockchain no longer valid')
         break
+    print(get_balance('John'))
 else:
     print('User left!')
 
