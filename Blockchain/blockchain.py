@@ -1,6 +1,10 @@
 from functools import reduce
 import hashlib as hl
-import json
+from collections import OrderedDict
+
+from hash_util import hash_block, hash_string_256
+
+
 # Initializing the blockchain list
 MINING_REWARD = 10
 
@@ -15,18 +19,9 @@ owner = 'John'
 participant = {'John'}
 
 
-def hash_block(block):
-    """Hashes a block and returns a string representation of it.
-
-    Arguments:
-        :block: The block that should be hashed.
-    """
-    return hl.sha256(json.dumps(block).encode()).hexdigest()
-
-
 def valid_proof(transactions, last_hash, proof):
     guess = (str(transactions) + str(last_hash) + str(proof)).encode()
-    guess_hash = hl.sha256(guess).hexdigest()
+    guess_hash = hash_string_256(guess)
     print(guess_hash)
     return guess_hash[0:2] == '00'
 
@@ -36,7 +31,7 @@ def proof_of_work():
     last_hash = hash_block(last_block)
     proof = 0
     while not valid_proof(open_transactions, last_hash, proof):
-        proof +=1
+        proof += 1
     return proof
 
 
@@ -88,10 +83,13 @@ def add_transaction(recipient, sender=owner, amount=1.0):
         :recipient: The recipient of the coins.
         :amount: The amount of coins sent with the transaction (default = 1.0)   
     """
-    transaction = {'sender': sender,
-                   'recipient': recipient,
-                   'amount': amount
-                   }
+    # transaction = {'sender': sender,
+    #                'recipient': recipient,
+    #                'amount': amount
+    #                }
+
+    transaction = OrderedDict(
+        [('sender', sender), ('recipient', recipient), ('amount', amount)])
 
     if verify_transaction(transaction):
         open_transactions.append(transaction)
@@ -113,11 +111,14 @@ def mine_block():
     proof = proof_of_work()
 
     # Providing a reward for miners
-    reward_transaction = {
-        'sender': 'MINING',
-        'recipient': owner,
-        'amount': MINING_REWARD
-    }
+    # reward_transaction = {
+    #     'sender': 'MINING',
+    #     'recipient': owner,
+    #     'amount': MINING_REWARD
+    # }
+    reward_transaction = OrderedDict(
+        [('sender', 'MINING'), ('recipient', owner), ('amount', MINING_REWARD)]
+    )
 
     # Copy transaction instead of manipulating the original open_transactions
     copied_transactions = open_transactions[:]
@@ -163,7 +164,7 @@ def verify_chain():
     for (index, block) in enumerate(blockchain):
         if index == 0:
             continue
-        
+
         if block['previous_hash'] != hash_block(blockchain[index - 1]):
             return False
 
@@ -231,6 +232,7 @@ while waiting_for_input:
 
     else:
         print('Input was invalid, please pick a value from the list!')
+
     if not verify_chain():
         print_blockchain_elements()
         print('Blockchain no longer valid')
