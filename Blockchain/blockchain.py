@@ -5,6 +5,7 @@ from hash_util import hash_block, hash_string_256
 import pickle
 from block import Block
 from transaction import Transaction
+from verification import Verification
 
 
 # Initializing the blockchain list
@@ -15,8 +16,6 @@ blockchain = []
 open_transactions = []
 # Owner of this particular blockchain node
 owner = 'John'
-# Registered participants: Myself + other people that are sending/receiving
-participant = {'John'}
 
 
 def load_data():
@@ -78,18 +77,12 @@ def save_data():
         print('Saving failed!')
 
 
-def valid_proof(transactions, last_hash, proof):
-    guess = (str(tx.to_ordered_dict()
-                 for tx in transactions) + str(last_hash) + str(proof)).encode()
-    guess_hash = hash_string_256(guess)
-    return guess_hash[0:2] == '00'
-
-
 def proof_of_work():
     last_block = blockchain[-1]
     last_hash = hash_block(last_block)
     proof = 0
-    while not valid_proof(open_transactions, last_hash, proof):
+    verifier = Verification()
+    while not verifier.valid_proof(open_transactions, last_hash, proof):
         proof += 1
     return proof
 
@@ -128,12 +121,6 @@ def get_last_blockchain_value():
     return blockchain[-1]
 
 
-def verify_transaction(transaction):
-
-    sender_balance = get_balance(transaction.sender)
-    return sender_balance >= transaction.amount
-
-
 def add_transaction(recipient, sender=owner, amount=1.0):
     """ Append a new value as well as the last block value to the blockchain 
 
@@ -149,7 +136,8 @@ def add_transaction(recipient, sender=owner, amount=1.0):
 
     transaction = Transaction(sender, recipient, amount)
 
-    if verify_transaction(transaction):
+    verifier = Verification()
+    if verifier.verify_transaction(transaction, get_balance):
         open_transactions.append(transaction)
         save_data()
         return True
@@ -211,26 +199,6 @@ def print_blockchain_elements():
         print('-' * 20)
 
 
-def verify_chain():
-
-    for (index, block) in enumerate(blockchain):
-        if index == 0:
-            continue
-
-        if block.previous_hash != hash_block(blockchain[index - 1]):
-            return False
-
-        if not valid_proof(block.transactions[:-1], block.previous_hash, block.proof):
-            print('PoW is invalid')
-            return False
-    return True
-
-
-def verify_transactions():
-
-    return all([verify_transaction(tx) for tx in open_transactions])
-
-
 waiting_for_input = True
 
 
@@ -240,8 +208,7 @@ while waiting_for_input:
     print('1: Add a new transaction value')
     print('2: Mine a new block')
     print('3: Output the blockchain blocks')
-    print('4: Output participants')
-    print('5: Check transaction validity')
+    print('4: Check transaction validity')
     print('q: Quit')
 
     user_choice = get_user_choice()
@@ -264,10 +231,8 @@ while waiting_for_input:
         print_blockchain_elements()
 
     elif user_choice == '4':
-        print(participant)
-
-    elif user_choice == '5':
-        if verify_transactions:
+        verifier = Verification()
+        if verifier.verify_transactions(open_transactions, get_balance):
             print('All transactions are valid.')
         else:
             print('There are invalid transactions.')
@@ -277,7 +242,8 @@ while waiting_for_input:
     else:
         print('Input was invalid, please pick a value from the list!')
 
-    if not verify_chain():
+    verifier = Verification()
+    if not verifier.verify_chain(blockchain):
         print_blockchain_elements()
         print('Blockchain no longer valid')
         break
