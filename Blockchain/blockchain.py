@@ -4,6 +4,7 @@ import json
 from hash_util import hash_block, hash_string_256
 from collections import OrderedDict
 import pickle
+from block import Block
 
 
 # Initializing the blockchain list
@@ -34,13 +35,9 @@ def load_data():
 
             updated_blockchain = []
             for block in blockchain:
-                updated_block = {
-                    'previous_hash': block['previous_hash'],
-                    'index': block['index'],
-                    'proof': block['proof'],
-                    'transactions': [OrderedDict(
+                converted_tx = [OrderedDict(
                         [('sender', tx['sender']), ('recipient', tx['recipient']), ('amount', tx['amount'])]) for tx in block['transactions']]
-                }
+                updated_block = Block(block['index'], block['previous_hash'], converted_tx, block['proof'], block['timestamp'])
                 updated_blockchain.append(updated_block)
             blockchain = updated_blockchain
 
@@ -56,11 +53,7 @@ def load_data():
             open_transactions = updated_transactions
     except (IOError, IndexError):
         # Our starting block
-        genesis_block = {'previous_hash': ' ',
-                         'index': 0,
-                         'transactions': [],
-                         'proof': 100
-                         }
+        genesis_block = Block(0, '', [], 100, 0)
         blockchain = [genesis_block]
         open_transactions = []
 
@@ -100,7 +93,7 @@ def proof_of_work():
 
 def get_balance(participant):
 
-    tx_sender = [[tx['amount'] for tx in block['transactions']
+    tx_sender = [[tx['amount'] for tx in block.transactions
                   if tx['sender'] == participant] for block in blockchain]
 
     # Fetch a list of all sent coin amounts for the given person (empty lists are returned if the person was NOT the sender)
@@ -113,7 +106,7 @@ def get_balance(participant):
 
     # This fetches received coin amounts of transactions that were already included in the blocks
     # Ignoring open transactions here because you shouldn't be able to spend coins before the transaction was confirmed
-    tx_recipient = [[tx['amount'] for tx in block['transactions']
+    tx_recipient = [[tx['amount'] for tx in block.transactions
                      if tx['recipient'] == participant] for block in blockchain]
 
     amount_received = reduce(
@@ -187,11 +180,8 @@ def mine_block():
     # Copy transaction instead of manipulating the original open_transactions
     copied_transactions = open_transactions[:]
     copied_transactions.append(reward_transaction)
-    block = {'previous_hash': hashed_block,
-             'index': len(blockchain),
-             'transactions': copied_transactions,
-             'proof': proof
-             }
+    block = Block(len(blockchain), hashed_block, copied_transactions, proof)
+
     blockchain.append(block)
 
     return True
@@ -229,10 +219,10 @@ def verify_chain():
         if index == 0:
             continue
 
-        if block['previous_hash'] != hash_block(blockchain[index - 1]):
+        if block.previous_hash != hash_block(blockchain[index - 1]):
             return False
 
-        if not valid_proof(block['transactions'][:-1], block['previous_hash'], block['proof']):
+        if not valid_proof(block.transactions[:-1], block.previous_hash, block.proof):
             print('PoW is invalid')
             return False
     return True
@@ -254,7 +244,6 @@ while waiting_for_input:
     print('3: Output the blockchain blocks')
     print('4: Output participants')
     print('5: Check transaction validity')
-    print('h: Manipulate the blockchain')
     print('q: Quit')
 
     user_choice = get_user_choice()
@@ -284,14 +273,6 @@ while waiting_for_input:
             print('All transactions are valid.')
         else:
             print('There are invalid transactions.')
-
-    elif user_choice == 'h':
-        if len(blockchain) >= 1:
-            blockchain[0] = {'previous_hash': ' ',
-                             'index': 0,
-                             'transactions': [{'sender': 'Chris', 'recipient': 'Max', 'amount': 100}]
-                             }
-
     elif user_choice == 'q':
         waiting_for_input = False
 
